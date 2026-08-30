@@ -5,10 +5,10 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://yuka-718.github.io'),
   title: 'Palette Standard｜色を、伝わる情報に。',
   description:
-    '色覚多様性に配慮し、画像の見えづらさを検出から補正まで一気通貫で支援するアクセシビリティ・プラットフォーム。',
+    '色覚多様性に配慮し、画像の見え方を確認して、色・模様・縁取りで補正できるアクセシビリティ・ツール。',
   openGraph: {
     title: 'Palette Standard｜色を、伝わる情報に。',
-    description: '見えづらさの検出から、誰にでも識別しやすい形への自動補正まで。',
+    description: '画像の見え方を確認し、色・模様・縁取りで識別しやすい形へ補正。',
     url: 'https://yuka-718.github.io/palette-standard/',
     siteName: 'Palette Standard',
     locale: 'ja_JP',
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Palette Standard｜色を、伝わる情報に。',
-    description: '見えづらさの検出から、誰にでも識別しやすい形への自動補正まで。',
+    description: '画像の見え方を確認し、色・模様・縁取りで識別しやすい形へ補正。',
     images: ['/palette-standard/og.png'],
   },
 };

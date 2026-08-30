@@ -776,6 +776,12 @@ a:focus-visible {
 }
 .control-group { margin-top: 28px; }
 .control-group legend { font-size: 8px; font-weight: 600; }
+.control-note {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.55;
+}
 .vision-options { gap: 1px; background: var(--soft-line); }
 .vision-options button {
   min-height: 49px;
@@ -1315,7 +1321,7 @@ footer p { font-size: 8px; }
   .tool-page .site-header { padding: 0 14px; }
   .header-status { font-size: 8px; }
   .tool-page .workspace-section { padding: 10px; }
-  .tool-page .workspace-tabs { display: grid; min-height: 0; grid-template-columns: repeat(3, 1fr); }
+  .tool-page .workspace-tabs { display: grid; min-height: 0; grid-template-columns: repeat(2, 1fr); }
   .tool-page .workspace-tabs button {
     min-height: 60px;
     padding: 8px 9px;

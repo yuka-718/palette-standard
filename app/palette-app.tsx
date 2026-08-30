@@ -11,17 +11,16 @@ import {
   ImageUp,
   Info,
   LockKeyhole,
-  ScanSearch,
   Upload,
   WandSparkles,
 } from 'lucide-react';
 import { ChangeEvent, DragEvent, useEffect, useRef, useState } from 'react';
 
-type ModuleKey = 'bridge' | 'edu' | 'camera';
-type VisionType = 'C' | 'P' | 'D' | 'T';
+type ModuleKey = 'bridge' | 'camera';
+type VisionType = 'C' | 'P' | 'D' | 'T' | 'A';
 type BridgeMode = 'simulate' | 'fix';
 type BridgeFixStyle = 'color' | 'pattern' | 'both';
-type EduMode = 'outline' | 'brightness';
+type BridgePreset = 'standard' | 'education';
 type CameraStatus = 'idle' | 'starting' | 'active' | 'error';
 
 const modules = [
@@ -32,24 +31,32 @@ const modules = [
     title: 'Color Bridge',
   },
   {
-    key: 'edu' as const,
-    number: '02',
-    label: 'まなぶ',
-    title: 'Edu Vision',
-  },
-  {
     key: 'camera' as const,
-    number: '03',
-    label: '暮らす',
+    number: '02',
+    label: '色を知る',
     title: 'Color Lens',
   },
 ];
 
 const visionLabels: Record<VisionType, string> = {
-  C: 'C型（一般色覚）',
-  P: 'P型（赤系）',
-  D: 'D型（緑系）',
-  T: 'T型（青黄系）',
+  C: 'C型（一般色覚・比較用）',
+  P: 'P型（1型色覚）',
+  D: 'D型（2型色覚）',
+  T: 'T型（3型色覚）',
+  A: 'A型（参考表示）',
+};
+
+const visionShortLabels: Record<VisionType, string> = {
+  C: '一般・比較',
+  P: '1型',
+  D: '2型',
+  T: '3型',
+  A: '参考',
+};
+
+const bridgePresetLabels: Record<BridgePreset, string> = {
+  standard: 'デザイン・資料',
+  education: '教材・黒板',
 };
 
 const bridgeFixLabels: Record<BridgeFixStyle, string> = {
@@ -58,7 +65,7 @@ const bridgeFixLabels: Record<BridgeFixStyle, string> = {
   both: '色＋模様',
 };
 
-const matrices: Record<Exclude<VisionType, 'C'>, number[]> = {
+const matrices: Record<Exclude<VisionType, 'C' | 'A'>, number[]> = {
   P: [0.152286, 1.052583, -0.204868, 0.114503, 0.786281, 0.099216, -0.003882, -0.048116, 1.051998],
   D: [0.367322, 0.860646, -0.227968, 0.280085, 0.672501, 0.047413, -0.01182, 0.04294, 0.968881],
   T: [1.255528, -0.076749, -0.178779, -0.078411, 0.930809, 0.147602, 0.004733, 0.691367, 0.3039],
@@ -96,6 +103,10 @@ function hexToRgb(hex: string) {
 
 function simulateVisionColor(r: number, g: number, b: number, type: VisionType) {
   if (type === 'C') return { r, g, b };
+  if (type === 'A') {
+    const gray = clamp(0.2126 * r + 0.7152 * g + 0.0722 * b);
+    return { r: gray, g: gray, b: gray };
+  }
   const matrix = matrices[type];
   return {
     r: clamp(matrix[0] * r + matrix[1] * g + matrix[2] * b),
@@ -189,7 +200,7 @@ export default function Home() {
   const [vision, setVision] = useState<VisionType>('D');
   const [bridgeMode, setBridgeMode] = useState<BridgeMode>('simulate');
   const [bridgeFixStyle, setBridgeFixStyle] = useState<BridgeFixStyle>('color');
-  const [eduMode, setEduMode] = useState<EduMode>('outline');
+  const [bridgePreset, setBridgePreset] = useState<BridgePreset>('standard');
   const [fileName, setFileName] = useState('サンプル資料');
   const [risk, setRisk] = useState(28);
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>('idle');
@@ -207,16 +218,17 @@ export default function Home() {
   const cameraTimerRef = useRef<number | null>(null);
   const cameraRequestRef = useRef(0);
   const activeVisionName = visionLabels[vision].split('（')[0];
-  const activeFixLabel = bridgeFixLabels[bridgeFixStyle];
+  const effectiveFixStyle: BridgeFixStyle = vision === 'A' ? 'pattern' : bridgeFixStyle;
+  const activeFixLabel = bridgeFixLabels[effectiveFixStyle];
 
-  function drawSample(module: ModuleKey = 'bridge') {
+  function drawSample(preset: BridgePreset = bridgePreset) {
     const canvas = sourceCanvasRef.current;
     if (!canvas) return;
     const context = canvas.getContext('2d', { willReadFrequently: true });
     if (!context) return;
     canvas.width = 960;
     canvas.height = 600;
-    if (module === 'edu') {
+    if (preset === 'education') {
       context.fillStyle = '#124f43';
       context.fillRect(0, 0, canvas.width, canvas.height);
       context.strokeStyle = 'rgba(255,255,255,.35)';
@@ -262,11 +274,11 @@ export default function Home() {
       context.stroke();
     }
     sourceDataRef.current = context.getImageData(0, 0, canvas.width, canvas.height);
-    setFileName(module === 'edu' ? 'サンプル教材' : 'サンプル資料');
-    processResult(vision, bridgeMode, eduMode, module);
+    setFileName(preset === 'education' ? 'サンプル教材' : 'サンプル資料');
+    processResult(vision, bridgeMode, effectiveFixStyle, preset);
   }
 
-  function processResult(nextVision = vision, nextBridgeMode = bridgeMode, nextEduMode = eduMode, module = activeModule, nextFixStyle = bridgeFixStyle) {
+  function processResult(nextVision = vision, nextBridgeMode = bridgeMode, nextFixStyle = effectiveFixStyle, nextPreset = bridgePreset) {
     const result = resultCanvasRef.current;
     const source = sourceDataRef.current;
     if (!result || !source) return;
@@ -278,48 +290,8 @@ export default function Home() {
     const data = output.data;
     let affected = 0;
 
-    if (module === 'edu') {
-      const mask = new Uint8Array(source.width * source.height);
-      for (let pixel = 0; pixel < data.length; pixel += 4) {
-        const index = pixel / 4;
-        const r = data[pixel];
-        const g = data[pixel + 1];
-        const b = data[pixel + 2];
-        const { h, s, l } = rgbToHsl(r, g, b);
-        if ((h < 28 || h > 330) && s > 0.28 && l > 0.12 && l < 0.8) {
-          mask[index] = 1;
-          affected += 1;
-          if (nextEduMode === 'brightness') {
-            data[pixel] = 255;
-            data[pixel + 1] = 255;
-            data[pixel + 2] = 255;
-          }
-        }
-      }
-      if (nextEduMode === 'outline') {
-        const radius = 4;
-        for (let y = radius; y < source.height - radius; y += 1) {
-          for (let x = radius; x < source.width - radius; x += 1) {
-            const index = y * source.width + x;
-            if (mask[index]) continue;
-            let near = false;
-            for (let oy = -radius; oy <= radius && !near; oy += 2) {
-              for (let ox = -radius; ox <= radius; ox += 2) {
-                if (mask[(y + oy) * source.width + x + ox]) { near = true; break; }
-              }
-            }
-            if (near) {
-              const pixel = index * 4;
-              data[pixel] = 255;
-              data[pixel + 1] = 255;
-              data[pixel + 2] = 255;
-            }
-          }
-        }
-      }
-      context.putImageData(output, 0, 0);
-    } else {
-      for (let pixel = 0; pixel < data.length; pixel += 4) {
+    const fixStyle = nextVision === 'A' ? 'pattern' : nextFixStyle;
+    for (let pixel = 0; pixel < data.length; pixel += 4) {
         const r = source.data[pixel];
         const g = source.data[pixel + 1];
         const b = source.data[pixel + 2];
@@ -328,8 +300,8 @@ export default function Home() {
         let nb: number;
         if (nextBridgeMode === 'fix') {
           const { s } = rgbToHsl(r, g, b);
-          const useColor = nextFixStyle === 'color' || nextFixStyle === 'both';
-          const usePattern = nextFixStyle === 'pattern' || nextFixStyle === 'both';
+          const useColor = fixStyle === 'color' || fixStyle === 'both';
+          const usePattern = fixStyle === 'pattern' || fixStyle === 'both';
           const corrected = useColor ? correctColorForVision(r, g, b, nextVision) : { r, g, b };
           nr = corrected.r;
           ng = corrected.g;
@@ -357,8 +329,34 @@ export default function Home() {
         data[pixel + 1] = ng;
         data[pixel + 2] = nb;
       }
-      context.putImageData(output, 0, 0);
+
+    if (nextBridgeMode === 'fix' && nextPreset === 'education') {
+      const mask = new Uint8Array(source.width * source.height);
+      for (let pixel = 0; pixel < data.length; pixel += 4) {
+        const { h, s, l } = rgbToHsl(source.data[pixel], source.data[pixel + 1], source.data[pixel + 2]);
+        if ((h < 28 || h > 330) && s > 0.28 && l > 0.12 && l < 0.8) mask[pixel / 4] = 1;
+      }
+      const radius = 3;
+      for (let y = radius; y < source.height - radius; y += 1) {
+        for (let x = radius; x < source.width - radius; x += 1) {
+          const index = y * source.width + x;
+          if (mask[index]) continue;
+          let near = false;
+          for (let oy = -radius; oy <= radius && !near; oy += 2) {
+            for (let ox = -radius; ox <= radius; ox += 2) {
+              if (mask[(y + oy) * source.width + x + ox]) { near = true; break; }
+            }
+          }
+          if (near) {
+            const pixel = index * 4;
+            data[pixel] = 255;
+            data[pixel + 1] = 255;
+            data[pixel + 2] = 255;
+          }
+        }
+      }
     }
+    context.putImageData(output, 0, 0);
     setRisk(Math.round((affected / (source.width * source.height)) * 100));
   }
 
@@ -372,7 +370,7 @@ export default function Home() {
     processResult();
     // Canvas state is intentionally recalculated from the current controls.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeModule, vision, bridgeMode, bridgeFixStyle, eduMode]);
+  }, [activeModule, vision, bridgeMode, bridgeFixStyle, bridgePreset]);
 
   useEffect(() => () => releaseCamera(false), []);
 
@@ -400,7 +398,7 @@ export default function Home() {
         setFileName(file.name);
         processResult();
       };
-      image.src = String(reader.result);
+      if (typeof reader.result === 'string') image.src = reader.result;
     };
     reader.readAsDataURL(file);
   }
@@ -507,8 +505,7 @@ export default function Home() {
     const canvas = resultCanvasRef.current;
     if (!canvas) return;
     const link = document.createElement('a');
-    const suffix = activeModule === 'edu' ? 'edu-vision' : 'color-bridge';
-    link.download = `palette-standard-${suffix}.png`;
+    link.download = 'palette-standard-color-bridge.png';
     link.href = canvas.toDataURL('image/png');
     link.click();
   }
@@ -518,9 +515,9 @@ export default function Home() {
     setActiveModule(module);
     if (module === 'camera') return;
     if (fileName.startsWith('サンプル')) {
-      window.setTimeout(() => drawSample(module), 0);
+      window.setTimeout(() => drawSample(bridgePreset), 0);
     } else {
-      window.setTimeout(() => processResult(vision, bridgeMode, eduMode, module), 0);
+      window.setTimeout(() => processResult(), 0);
     }
   }
 
@@ -559,7 +556,7 @@ export default function Home() {
               <aside className="tool-sidebar">
                 <div>
                   <p className="tool-kicker">SOURCE IMAGE</p>
-                  <h3>{activeModule === 'bridge' ? '画像を解析する' : '教材を補正する'}</h3>
+                  <h3>画像を解析・補正する</h3>
                   <p>PNG・JPG・WebP / 最大 12MB</p>
                 </div>
                 <input ref={inputRef} className="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp" onChange={handleFileInput} />
@@ -573,67 +570,77 @@ export default function Home() {
                   </button>
                 </div>
 
-                {activeModule === 'bridge' ? (
-                  <>
-                    <fieldset className="control-group">
-                      <legend>見え方のタイプ</legend>
-                      <div className="vision-options">
-                        {(Object.keys(visionLabels) as VisionType[]).map((type) => (
-                          <button
-                            type="button"
-                            key={type}
-                            aria-pressed={vision === type}
-                            onClick={() => { setVision(type); processResult(type, bridgeMode, eduMode); }}
-                          >
-                            <b>{type}</b><span>{visionLabels[type].split('（')[0]}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </fieldset>
-                    <fieldset className="control-group">
-                      <legend>表示モード</legend>
-                      <button className="wide-option" type="button" aria-pressed={bridgeMode === 'simulate'} onClick={() => { setBridgeMode('simulate'); processResult(vision, 'simulate', eduMode); }}>
-                        <Eye aria-hidden="true" /> 見え方を確認
-                        {bridgeMode === 'simulate' && <Check aria-label="選択中" />}
-                      </button>
-                      <button className="wide-option" type="button" aria-pressed={bridgeMode === 'fix'} onClick={() => { setBridgeMode('fix'); processResult(vision, 'fix', eduMode); }}>
-                        <WandSparkles aria-hidden="true" /> {activeVisionName}向けに補正
-                        {bridgeMode === 'fix' && <Check aria-label="選択中" />}
-                      </button>
-                    </fieldset>
-                    {bridgeMode === 'fix' && (
-                      <fieldset className="control-group">
-                        <legend>補正方法</legend>
-                        {(Object.keys(bridgeFixLabels) as BridgeFixStyle[]).map((style) => (
-                          <button
-                            className="wide-option"
-                            key={style}
-                            type="button"
-                            aria-pressed={bridgeFixStyle === style}
-                            onClick={() => {
-                              setBridgeFixStyle(style);
-                              processResult(vision, 'fix', eduMode, activeModule, style);
-                            }}
-                          >
-                            {bridgeFixLabels[style]}
-                            {bridgeFixStyle === style && <Check aria-label="選択中" />}
-                          </button>
-                        ))}
-                      </fieldset>
-                    )}
-                  </>
-                ) : (
-                  <fieldset className="control-group">
-                    <legend>補正方法</legend>
-                    {([
-                      ['outline', '白い縁取り'],
-                      ['brightness', '白文字へ変換'],
-                    ] as [EduMode, string][]).map(([mode, label]) => (
-                      <button className="wide-option" key={mode} type="button" aria-pressed={eduMode === mode} onClick={() => { setEduMode(mode); processResult(vision, bridgeMode, mode); }}>
-                        <ScanSearch aria-hidden="true" /> {label}
-                        {eduMode === mode && <Check aria-label="選択中" />}
+                <fieldset className="control-group">
+                  <legend>対象</legend>
+                  {(Object.keys(bridgePresetLabels) as BridgePreset[]).map((preset) => (
+                    <button
+                      className="wide-option"
+                      key={preset}
+                      type="button"
+                      aria-pressed={bridgePreset === preset}
+                      onClick={() => {
+                        setBridgePreset(preset);
+                        if (fileName.startsWith('サンプル')) window.setTimeout(() => drawSample(preset), 0);
+                        else processResult(vision, bridgeMode, effectiveFixStyle, preset);
+                      }}
+                    >
+                      {bridgePresetLabels[preset]}
+                      {bridgePreset === preset && <Check aria-label="選択中" />}
+                    </button>
+                  ))}
+                  {bridgePreset === 'education' && <p className="control-note">補正時に、赤系の強調箇所へ白い縁を加えます。</p>}
+                </fieldset>
+
+                <fieldset className="control-group">
+                  <legend>見え方のタイプ</legend>
+                  <div className="vision-options">
+                    {(Object.keys(visionLabels) as VisionType[]).map((type) => (
+                      <button
+                        type="button"
+                        key={type}
+                        aria-label={visionLabels[type]}
+                        aria-pressed={vision === type}
+                        onClick={() => {
+                          setVision(type);
+                          processResult(type, bridgeMode, type === 'A' ? 'pattern' : bridgeFixStyle);
+                        }}
+                      >
+                        <b>{type}</b><span>{visionShortLabels[type]}</span>
                       </button>
                     ))}
+                  </div>
+                  <p className="control-note">C型は比較用。P・D・T・A型が主な色覚特性の分類です。A型は参考表示です。</p>
+                </fieldset>
+                <fieldset className="control-group">
+                  <legend>表示モード</legend>
+                  <button className="wide-option" type="button" aria-pressed={bridgeMode === 'simulate'} onClick={() => { setBridgeMode('simulate'); processResult(vision, 'simulate'); }}>
+                    <Eye aria-hidden="true" /> 見え方を確認
+                    {bridgeMode === 'simulate' && <Check aria-label="選択中" />}
+                  </button>
+                  <button className="wide-option" type="button" aria-pressed={bridgeMode === 'fix'} onClick={() => { setBridgeMode('fix'); processResult(vision, 'fix'); }}>
+                    <WandSparkles aria-hidden="true" /> {activeVisionName}向けに補正
+                    {bridgeMode === 'fix' && <Check aria-label="選択中" />}
+                  </button>
+                </fieldset>
+                {bridgeMode === 'fix' && (
+                  <fieldset className="control-group">
+                    <legend>補正方法</legend>
+                    {(vision === 'A' ? (['pattern'] as BridgeFixStyle[]) : (Object.keys(bridgeFixLabels) as BridgeFixStyle[])).map((style) => (
+                      <button
+                        className="wide-option"
+                        key={style}
+                        type="button"
+                        aria-pressed={effectiveFixStyle === style}
+                        onClick={() => {
+                          setBridgeFixStyle(style);
+                          processResult(vision, 'fix', style);
+                        }}
+                      >
+                        {bridgeFixLabels[style]}
+                        {effectiveFixStyle === style && <Check aria-label="選択中" />}
+                      </button>
+                    ))}
+                    {vision === 'A' && <p className="control-note">色の置換ではなく、模様で情報を区別します。</p>}
                   </fieldset>
                 )}
 
@@ -644,9 +651,9 @@ export default function Home() {
                 <div className="analysis-bar">
                   <div><span className="status-dot" /> {fileName}</div>
                   <div className="analysis-result">
-                    {bridgeMode === 'fix' || activeModule === 'edu' ? <CheckCircle2 aria-hidden="true" /> : <Info aria-hidden="true" />}
-                    <strong>{activeModule === 'edu' ? '教材補正済み' : bridgeMode === 'fix' ? `${activeVisionName}向け補正済み` : '解析中'}</strong>
-                    <span>対象領域 {risk}%</span>
+                    {bridgeMode === 'fix' ? <CheckCircle2 aria-hidden="true" /> : <Info aria-hidden="true" />}
+                    <strong>{bridgeMode === 'fix' ? `${activeVisionName}向け補正済み` : '解析中'}</strong>
+                    <span>{bridgeMode === 'fix' ? '補正候補' : '変化画素'} {risk}%</span>
                   </div>
                 </div>
                 <div
@@ -662,15 +669,15 @@ export default function Home() {
                   </figure>
                   <figure>
                     <figcaption>
-                      <span>{activeModule === 'bridge' ? (bridgeMode === 'fix' ? 'FIXED' : visionLabels[vision]) : 'ENHANCED'}</span>
-                      {activeModule === 'bridge' ? (bridgeMode === 'fix' ? `${activeVisionName}向け・${activeFixLabel}` : 'シミュレーション') : '教材補正'}
+                      <span>{bridgeMode === 'fix' ? 'FIXED' : visionLabels[vision]}</span>
+                      {bridgeMode === 'fix' ? `${activeVisionName}向け・${activeFixLabel}` : 'シミュレーション'}
                     </figcaption>
                     <canvas ref={resultCanvasRef} aria-label="処理後画像のプレビュー" />
                   </figure>
                   {isDragging && <div className="drop-overlay"><ImageUp aria-hidden="true" />ここにドロップ</div>}
                 </div>
                 <div className="canvas-actions">
-                  <p><Info aria-hidden="true" /> {bridgeMode === 'fix' ? '補正結果は目安です。重要な用途では当事者による確認も行ってください。' : 'シミュレーションは見分けにくさの目安です。実際の見え方を断定するものではありません。'}</p>
+                  <p><Info aria-hidden="true" /> {bridgeMode === 'fix' ? '補正結果は目安です。重要な用途では当事者による確認も行ってください。' : vision === 'A' ? 'A型は単純な白黒表示と同一ではありません。色の識別が限られる状態の参考表示です。' : 'シミュレーションは見分けにくさの目安です。実際の見え方を断定するものではありません。'}</p>
                   <button type="button" onClick={downloadResult}><Download aria-hidden="true" /> PNGをダウンロード</button>
                 </div>
               </div>
