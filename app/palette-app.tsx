@@ -144,10 +144,11 @@ function cudTargetColor(hue: number, lightness: number, type: VisionType) {
 }
 
 function correctColorForVision(r: number, g: number, b: number, type: VisionType) {
+  if (type === 'C') return { r, g, b };
   const { h, s, l } = rgbToHsl(r, g, b);
   if (s <= 0.2) return { r, g, b };
   const target = cudTargetColor(h, l, type);
-  const mix = type === 'C' ? 0.42 : Math.min(0.76, 0.32 + s * 0.46);
+  const mix = Math.min(0.76, 0.32 + s * 0.46);
   return {
     r: clamp(r * (1 - mix) + target.r * mix),
     g: clamp(g * (1 - mix) + target.g * mix),
@@ -290,6 +291,7 @@ export default function Home() {
     const data = output.data;
     let affected = 0;
 
+    const effectiveMode: BridgeMode = nextVision === 'C' ? 'simulate' : nextBridgeMode;
     const fixStyle = nextVision === 'A' ? 'pattern' : nextFixStyle;
     for (let pixel = 0; pixel < data.length; pixel += 4) {
         const r = source.data[pixel];
@@ -298,7 +300,7 @@ export default function Home() {
         let nr: number;
         let ng: number;
         let nb: number;
-        if (nextBridgeMode === 'fix') {
+        if (effectiveMode === 'fix') {
           const { s } = rgbToHsl(r, g, b);
           const useColor = fixStyle === 'color' || fixStyle === 'both';
           const usePattern = fixStyle === 'pattern' || fixStyle === 'both';
@@ -330,7 +332,7 @@ export default function Home() {
         data[pixel + 2] = nb;
       }
 
-    if (nextBridgeMode === 'fix' && nextPreset === 'education') {
+    if (effectiveMode === 'fix' && nextPreset === 'education') {
       const mask = new Uint8Array(source.width * source.height);
       for (let pixel = 0; pixel < data.length; pixel += 4) {
         const { h, s, l } = rgbToHsl(source.data[pixel], source.data[pixel + 1], source.data[pixel + 2]);
@@ -505,7 +507,7 @@ export default function Home() {
     const canvas = resultCanvasRef.current;
     if (!canvas) return;
     const link = document.createElement('a');
-    link.download = 'palette-standard-color-bridge.png';
+    link.download = 'eyepalette-color-bridge.png';
     link.href = canvas.toDataURL('image/png');
     link.click();
   }
@@ -526,9 +528,9 @@ export default function Home() {
       <a className="skip-link" href="#workspace">ツールへ移動</a>
 
       <header className="site-header" id="top">
-        <a className="brand" href="#workspace" aria-label="Palette Standard ツールへ">
+        <a className="brand" href="#workspace" aria-label="EyePalette ツールへ">
           <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>
-          <span>Palette <b>Standard</b></span>
+          <span>Eye<b>Palette</b></span>
         </a>
         <p className="header-status"><LockKeyhole aria-hidden="true" /> 画像・映像は端末内で処理</p>
       </header>
@@ -602,14 +604,16 @@ export default function Home() {
                         aria-pressed={vision === type}
                         onClick={() => {
                           setVision(type);
-                          processResult(type, bridgeMode, type === 'A' ? 'pattern' : bridgeFixStyle);
+                          const nextMode: BridgeMode = type === 'C' ? 'simulate' : bridgeMode;
+                          if (type === 'C') setBridgeMode('simulate');
+                          processResult(type, nextMode, type === 'A' ? 'pattern' : bridgeFixStyle);
                         }}
                       >
                         <b>{type}</b><span>{visionShortLabels[type]}</span>
                       </button>
                     ))}
                   </div>
-                  <p className="control-note">C型は比較用。P・D・T・A型が主な色覚特性の分類です。A型は参考表示です。</p>
+                  <p className="control-note">C型は元画像との比較用で、補正は行いません。P・D・T・A型が主な色覚特性の分類です。A型は参考表示です。</p>
                 </fieldset>
                 <fieldset className="control-group">
                   <legend>表示モード</legend>
@@ -617,12 +621,14 @@ export default function Home() {
                     <Eye aria-hidden="true" /> 見え方を確認
                     {bridgeMode === 'simulate' && <Check aria-label="選択中" />}
                   </button>
-                  <button className="wide-option" type="button" aria-pressed={bridgeMode === 'fix'} onClick={() => { setBridgeMode('fix'); processResult(vision, 'fix'); }}>
-                    <WandSparkles aria-hidden="true" /> {activeVisionName}向けに補正
-                    {bridgeMode === 'fix' && <Check aria-label="選択中" />}
-                  </button>
+                  {vision !== 'C' && (
+                    <button className="wide-option" type="button" aria-pressed={bridgeMode === 'fix'} onClick={() => { setBridgeMode('fix'); processResult(vision, 'fix'); }}>
+                      <WandSparkles aria-hidden="true" /> {activeVisionName}向けに補正
+                      {bridgeMode === 'fix' && <Check aria-label="選択中" />}
+                    </button>
+                  )}
                 </fieldset>
-                {bridgeMode === 'fix' && (
+                {vision !== 'C' && bridgeMode === 'fix' && (
                   <fieldset className="control-group">
                     <legend>補正方法</legend>
                     {(vision === 'A' ? (['pattern'] as BridgeFixStyle[]) : (Object.keys(bridgeFixLabels) as BridgeFixStyle[])).map((style) => (

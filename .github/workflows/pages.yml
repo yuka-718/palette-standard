@@ -1,4 +1,4 @@
-name: Deploy Palette Standard to GitHub Pages
+name: Deploy EyePalette to GitHub Pages
 
 on:
   push:
@@ -35,8 +35,8 @@ jobs:
 
       - name: Align asset paths for project Pages
         run: |
-          mv dist/client/palette-standard/_next dist/client/_next
-          rmdir dist/client/palette-standard
+          mv dist/client/EyePalette/_next dist/client/_next
+          rmdir dist/client/EyePalette
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
