@@ -507,7 +507,7 @@ export default function Home() {
     const canvas = resultCanvasRef.current;
     if (!canvas) return;
     const link = document.createElement('a');
-    link.download = 'eyepalette-color-bridge.png';
+    link.download = 'bridgepalette-color-bridge.png';
     link.href = canvas.toDataURL('image/png');
     link.click();
   }
@@ -528,9 +528,9 @@ export default function Home() {
       <a className="skip-link" href="#workspace">ツールへ移動</a>
 
       <header className="site-header" id="top">
-        <a className="brand" href="#workspace" aria-label="EyePalette ツールへ">
+        <a className="brand" href="#workspace" aria-label="BridgePalette ツールへ">
           <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>
-          <span>Eye<b>Palette</b></span>
+          <span>Bridge<b>Palette</b></span>
         </a>
         <p className="header-status"><LockKeyhole aria-hidden="true" /> 画像・映像は端末内で処理</p>
       </header>

@@ -3,23 +3,23 @@ import './globals.css';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://yuka-718.github.io'),
-  title: 'EyePalette｜色を、伝わる情報に。',
+  title: 'BridgePalette｜色を、伝わる情報に。',
   description:
     '色覚多様性に配慮し、画像の見え方を確認して、色・模様・縁取りで補正できるアクセシビリティ・ツール。',
   openGraph: {
-    title: 'EyePalette｜色を、伝わる情報に。',
+    title: 'BridgePalette｜色を、伝わる情報に。',
     description: '画像の見え方を確認し、色・模様・縁取りで識別しやすい形へ補正。',
-    url: 'https://yuka-718.github.io/EyePalette/',
-    siteName: 'EyePalette',
+    url: 'https://yuka-718.github.io/BridgePalette/',
+    siteName: 'BridgePalette',
     locale: 'ja_JP',
     type: 'website',
-    images: [{ url: '/EyePalette/og.png', width: 1200, height: 630, alt: 'EyePalette — 色を、伝わる情報に。' }],
+    images: [{ url: '/BridgePalette/og.png', width: 1200, height: 630, alt: 'BridgePalette — 色を、伝わる情報に。' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'EyePalette｜色を、伝わる情報に。',
+    title: 'BridgePalette｜色を、伝わる情報に。',
     description: '画像の見え方を確認し、色・模様・縁取りで識別しやすい形へ補正。',
-    images: ['/EyePalette/og.png'],
+    images: ['/BridgePalette/og.png'],
   },
 };
 

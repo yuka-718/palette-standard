@@ -1,4 +1,4 @@
-name: Deploy EyePalette to GitHub Pages
+name: Deploy BridgePalette to GitHub Pages
 
 on:
   push:
@@ -35,8 +35,8 @@ jobs:
 
       - name: Align asset paths for project Pages
         run: |
-          mv dist/client/EyePalette/_next dist/client/_next
-          rmdir dist/client/EyePalette
+          mv dist/client/BridgePalette/_next dist/client/_next
+          rmdir dist/client/BridgePalette
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
