@@ -84,6 +84,56 @@ function hexToRgb(hex: string) {
   };
 }
 
+function simulateVisionColor(r: number, g: number, b: number, type: VisionType) {
+  if (type === 'C') return { r, g, b };
+  const matrix = matrices[type];
+  return {
+    r: clamp(matrix[0] * r + matrix[1] * g + matrix[2] * b),
+    g: clamp(matrix[3] * r + matrix[4] * g + matrix[5] * b),
+    b: clamp(matrix[6] * r + matrix[7] * g + matrix[8] * b),
+  };
+}
+
+function cudTargetColor(hue: number, lightness: number, type: VisionType) {
+  if (type === 'P' || type === 'D') {
+    if (hue < 18 || hue >= 345) return lightness < 0.35 ? { r: 153, g: 0, b: 153 } : { r: 246, g: 170, b: 0 };
+    if (hue < 48) return { r: 246, g: 170, b: 0 };
+    if (hue < 78) return { r: 255, g: 241, b: 0 };
+    if (hue < 175) return { r: 0, g: 90, b: 255 };
+    if (hue < 270) return { r: 77, g: 196, b: 255 };
+    if (hue < 330) return { r: 153, g: 0, b: 153 };
+    return { r: 255, g: 128, b: 130 };
+  }
+  if (type === 'T') {
+    if (hue < 18 || hue >= 345) return { r: 77, g: 196, b: 255 };
+    if (hue < 48) return { r: 246, g: 170, b: 0 };
+    if (hue < 78) return { r: 255, g: 241, b: 0 };
+    if (hue < 210) return { r: 255, g: 75, b: 0 };
+    if (hue < 270) return { r: 0, g: 90, b: 255 };
+    return { r: 153, g: 0, b: 153 };
+  }
+  if (hue < 18 || hue >= 345) return { r: 255, g: 75, b: 0 };
+  if (hue < 48) return { r: 246, g: 170, b: 0 };
+  if (hue < 78) return { r: 255, g: 241, b: 0 };
+  if (hue < 175) return { r: 3, g: 175, b: 122 };
+  if (hue < 210) return { r: 77, g: 196, b: 255 };
+  if (hue < 270) return { r: 0, g: 90, b: 255 };
+  if (hue < 330) return { r: 153, g: 0, b: 153 };
+  return { r: 255, g: 128, b: 130 };
+}
+
+function correctColorForVision(r: number, g: number, b: number, type: VisionType) {
+  const { h, s, l } = rgbToHsl(r, g, b);
+  if (s <= 0.2) return { r, g, b };
+  const target = cudTargetColor(h, l, type);
+  const mix = type === 'C' ? 0.42 : Math.min(0.76, 0.32 + s * 0.46);
+  return {
+    r: clamp(r * (1 - mix) + target.r * mix),
+    g: clamp(g * (1 - mix) + target.g * mix),
+    b: clamp(b * (1 - mix) + target.b * mix),
+  };
+}
+
 function luminance({ r, g, b }: ReturnType<typeof hexToRgb>) {
   const convert = (value: number) => {
     const channel = value / 255;
@@ -147,6 +197,7 @@ export default function Home() {
   const sourceDataRef = useRef<ImageData | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const talkAdvice = useMemo(() => getColorAdvice(firstColor, secondColor), [firstColor, secondColor]);
+  const activeVisionName = visionLabels[vision].split('（')[0];
 
   function drawSample(module: ModuleKey = 'bridge') {
     const canvas = sourceCanvasRef.current;
@@ -277,35 +328,25 @@ export default function Home() {
         context.setLineDash([]);
       }
     } else {
-      const matrix = nextVision === 'C' ? null : matrices[nextVision];
       for (let pixel = 0; pixel < data.length; pixel += 4) {
         const r = source.data[pixel];
         const g = source.data[pixel + 1];
         const b = source.data[pixel + 2];
-        let nr = r;
-        let ng = g;
-        let nb = b;
-        if (matrix) {
-          nr = clamp(matrix[0] * r + matrix[1] * g + matrix[2] * b);
-          ng = clamp(matrix[3] * r + matrix[4] * g + matrix[5] * b);
-          nb = clamp(matrix[6] * r + matrix[7] * g + matrix[8] * b);
-          if (Math.abs(nr - r) + Math.abs(ng - g) + Math.abs(nb - b) > 85) affected += 1;
-        }
+        let nr: number;
+        let ng: number;
+        let nb: number;
         if (nextBridgeMode === 'fix') {
-          const { h, s, l } = rgbToHsl(r, g, b);
-          if (s > 0.24 && ((h < 75 || h > 330) || (h > 80 && h < 170))) {
-            const isGreen = h > 80 && h < 170;
-            const stripe = ((pixel / 4) % source.width + Math.floor(pixel / 4 / source.width)) % 24 < 6;
-            const shift = isGreen ? (stripe ? 64 : 38) : stripe ? -42 : -18;
-            nr = clamp(r + shift);
-            ng = clamp(g + shift);
-            nb = clamp(b + shift);
-            affected += 1;
-          } else {
-            const contrast = (l - 0.5) * 1.08 + 0.5;
-            const delta = (contrast - l) * 255;
-            nr = clamp(r + delta); ng = clamp(g + delta); nb = clamp(b + delta);
-          }
+          const corrected = correctColorForVision(r, g, b, nextVision);
+          nr = corrected.r;
+          ng = corrected.g;
+          nb = corrected.b;
+          if (Math.abs(nr - r) + Math.abs(ng - g) + Math.abs(nb - b) > 48) affected += 1;
+        } else {
+          const simulated = simulateVisionColor(r, g, b, nextVision);
+          nr = simulated.r;
+          ng = simulated.g;
+          nb = simulated.b;
+          if (Math.abs(nr - r) + Math.abs(ng - g) + Math.abs(nb - b) > 85) affected += 1;
         }
         data[pixel] = nr;
         data[pixel + 1] = ng;
@@ -313,7 +354,7 @@ export default function Home() {
       }
       context.putImageData(output, 0, 0);
     }
-    setRisk(Math.max(1, Math.round((affected / (source.width * source.height)) * 100)));
+    setRisk(Math.round((affected / (source.width * source.height)) * 100));
   }
 
   useEffect(() => {
@@ -454,7 +495,7 @@ export default function Home() {
                         {bridgeMode === 'simulate' && <Check aria-label="選択中" />}
                       </button>
                       <button className="wide-option" type="button" aria-pressed={bridgeMode === 'fix'} onClick={() => { setBridgeMode('fix'); processResult(vision, 'fix', eduMode); }}>
-                        <WandSparkles aria-hidden="true" /> 自動補正
+                        <WandSparkles aria-hidden="true" /> {activeVisionName}向けに色を補正
                         {bridgeMode === 'fix' && <Check aria-label="選択中" />}
                       </button>
                     </fieldset>
@@ -483,7 +524,7 @@ export default function Home() {
                   <div><span className="status-dot" /> {fileName}</div>
                   <div className="analysis-result">
                     {bridgeMode === 'fix' || activeModule === 'edu' ? <CheckCircle2 aria-hidden="true" /> : <Info aria-hidden="true" />}
-                    <strong>{bridgeMode === 'fix' || activeModule === 'edu' ? '補正済み' : '解析中'}</strong>
+                    <strong>{activeModule === 'edu' ? '教材補正済み' : bridgeMode === 'fix' ? `${activeVisionName}向け補正済み` : '解析中'}</strong>
                     <span>対象領域 {risk}%</span>
                   </div>
                 </div>
@@ -501,14 +542,14 @@ export default function Home() {
                   <figure>
                     <figcaption>
                       <span>{activeModule === 'bridge' ? (bridgeMode === 'fix' ? 'FIXED' : visionLabels[vision]) : 'ENHANCED'}</span>
-                      {activeModule === 'bridge' ? (bridgeMode === 'fix' ? '自動補正' : 'シミュレーション') : '教材補正'}
+                      {activeModule === 'bridge' ? (bridgeMode === 'fix' ? `${activeVisionName}向け色補正` : 'シミュレーション') : '教材補正'}
                     </figcaption>
                     <canvas ref={resultCanvasRef} aria-label="処理後画像のプレビュー" />
                   </figure>
                   {isDragging && <div className="drop-overlay"><ImageUp aria-hidden="true" />ここにドロップ</div>}
                 </div>
                 <div className="canvas-actions">
-                  <p><Info aria-hidden="true" /> シミュレーションは見分けにくさの目安です。実際の見え方を断定するものではありません。</p>
+                  <p><Info aria-hidden="true" /> {bridgeMode === 'fix' ? '補正結果は目安です。重要な用途では当事者による確認も行ってください。' : 'シミュレーションは見分けにくさの目安です。実際の見え方を断定するものではありません。'}</p>
                   <button type="button" onClick={downloadResult}><Download aria-hidden="true" /> PNGをダウンロード</button>
                 </div>
               </div>
