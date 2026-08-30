@@ -4,7 +4,6 @@ import {
   Camera,
   CameraOff,
   Check,
-  CheckCircle2,
   Crosshair,
   Download,
   Eye,
@@ -204,7 +203,6 @@ export default function Home() {
   const [bridgeFixStyle, setBridgeFixStyle] = useState<BridgeFixStyle>('color');
   const [bridgePreset, setBridgePreset] = useState<BridgePreset>('standard');
   const [fileName, setFileName] = useState('サンプル資料');
-  const [risk, setRisk] = useState(28);
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>('idle');
   const [cameraError, setCameraError] = useState('');
   const [detectedColor, setDetectedColor] = useState({ r: 132, g: 145, b: 158, hex: '#84919E', name: 'グレー' });
@@ -290,8 +288,6 @@ export default function Home() {
     if (!context) return;
     const output = new ImageData(new Uint8ClampedArray(source.data), source.width, source.height);
     const data = output.data;
-    let affected = 0;
-
     const effectiveMode: BridgeMode = nextVision === 'C' ? 'simulate' : nextBridgeMode;
     const fixStyle = nextVision === 'A' ? 'pattern' : nextFixStyle;
     for (let pixel = 0; pixel < data.length; pixel += 4) {
@@ -302,14 +298,12 @@ export default function Home() {
         let ng: number;
         let nb: number;
         if (effectiveMode === 'fix') {
-          const { s } = rgbToHsl(r, g, b);
           const useColor = fixStyle === 'color' || fixStyle === 'both';
           const usePattern = fixStyle === 'pattern' || fixStyle === 'both';
           const corrected = useColor ? correctColorForVision(r, g, b, nextVision) : { r, g, b };
           nr = corrected.r;
           ng = corrected.g;
           nb = corrected.b;
-          if (s > 0.2) affected += 1;
           if (usePattern) {
             const index = pixel / 4;
             const x = index % source.width;
@@ -326,7 +320,6 @@ export default function Home() {
           nr = simulated.r;
           ng = simulated.g;
           nb = simulated.b;
-          if (Math.abs(nr - r) + Math.abs(ng - g) + Math.abs(nb - b) > 85) affected += 1;
         }
         data[pixel] = nr;
         data[pixel + 1] = ng;
@@ -360,7 +353,6 @@ export default function Home() {
       }
     }
     context.putImageData(output, 0, 0);
-    setRisk(Math.round((affected / (source.width * source.height)) * 100));
   }
 
   useEffect(() => {
@@ -657,11 +649,6 @@ export default function Home() {
               <div className="canvas-workspace">
                 <div className="analysis-bar">
                   <div><span className="status-dot" /> {fileName}</div>
-                  <div className="analysis-result">
-                    {bridgeMode === 'fix' ? <CheckCircle2 aria-hidden="true" /> : <Info aria-hidden="true" />}
-                    <strong>{bridgeMode === 'fix' ? `${activeVisionName}向け補正済み` : '解析中'}</strong>
-                    <span>{bridgeMode === 'fix' ? '補正候補' : '変化画素'} {risk}%</span>
-                  </div>
                 </div>
                 <div
                   className={`canvas-grid ${isDragging ? 'is-dragging' : ''}`}
