@@ -1033,3 +1033,114 @@ footer p { font-size: 8px; }
   .principles, .vision-section { padding-right: 18px; padding-left: 18px; }
   footer { width: calc(100% - 28px); }
 }
+
+/* Tool-first layout */
+.tool-page {
+  min-height: 100vh;
+  background: #e7e6e1;
+}
+
+.tool-page .site-header {
+  width: 100%;
+  min-height: 58px;
+  padding: 0 max(20px, calc((100vw - 1440px) / 2));
+  border-bottom: 1px solid var(--ink);
+  background: var(--surface);
+}
+
+.header-status {
+  display: inline-flex;
+  margin: 0;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.header-status svg {
+  width: 13px;
+  height: 13px;
+}
+
+.tool-page .workspace-section {
+  min-height: calc(100vh - 58px);
+  margin: 0;
+  padding: 20px;
+  border: 0;
+  background: #e7e6e1;
+}
+
+.tool-page .workspace-shell {
+  width: min(1440px, 100%);
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--ink);
+  background: var(--surface);
+}
+
+.tool-page .workspace-tabs {
+  min-height: 68px;
+  background: var(--surface);
+}
+
+.tool-page .workspace-tabs button {
+  display: grid;
+  min-height: 68px;
+  padding: 10px 22px;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  align-content: center;
+  justify-items: start;
+  gap: 2px 12px;
+  text-align: left;
+}
+
+.tool-page .workspace-tabs button span {
+  color: inherit;
+  font-size: 8px;
+  letter-spacing: .06em;
+}
+
+.tool-page .workspace-tabs button strong {
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -.02em;
+}
+
+.tool-page .workspace-tabs button svg {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.tool-page .image-tool {
+  min-height: calc(100vh - 168px);
+}
+
+.tool-page .talk-tool {
+  min-height: calc(100vh - 168px);
+}
+
+@media (max-width: 900px) {
+  .tool-page .workspace-section { padding: 14px; }
+  .tool-page .image-tool { min-height: auto; }
+  .tool-page .talk-tool { min-height: auto; }
+}
+
+@media (max-width: 600px) {
+  .tool-page .site-header { padding: 0 14px; }
+  .header-status { font-size: 8px; }
+  .tool-page .workspace-section { padding: 10px; }
+  .tool-page .workspace-tabs { display: grid; min-height: 0; grid-template-columns: repeat(3, 1fr); }
+  .tool-page .workspace-tabs button {
+    min-height: 60px;
+    padding: 8px 9px;
+    border-right: 1px solid var(--soft-line);
+    border-bottom: 0;
+  }
+  .tool-page .workspace-tabs button:last-child { border-right: 0; }
+  .tool-page .workspace-tabs button span { font-size: 7px; }
+  .tool-page .workspace-tabs button strong { font-size: 11px; }
+  .tool-page .workspace-tabs button svg { display: none; }
+}

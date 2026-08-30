@@ -1,19 +1,14 @@
 'use client';
 
 import {
-  ArrowDown,
-  ArrowRight,
-  BookOpenCheck,
   Check,
   CheckCircle2,
   Download,
   Eye,
   ImageUp,
   Info,
-  Layers3,
   LockKeyhole,
   ScanSearch,
-  Shirt,
   Sparkles,
   Upload,
   WandSparkles,
@@ -31,27 +26,18 @@ const modules = [
     number: '01',
     label: 'つくる',
     title: 'Color Bridge',
-    description: '資料やデザインの見分けにくい配色を検出し、伝わる表現へ。',
-    icon: Layers3,
-    accent: 'module-blue',
   },
   {
     key: 'edu' as const,
     number: '02',
     label: 'まなぶ',
     title: 'Edu Vision',
-    description: '黒板や教材で背景に同化した文字を、くっきり読みやすく。',
-    icon: ScanSearch,
-    accent: 'module-orange',
   },
   {
     key: 'talk' as const,
     number: '03',
     label: '暮らす',
     title: 'Color Talk',
-    description: '服やアイテムの配色を、色名と自然なことばでアドバイス。',
-    icon: Shirt,
-    accent: 'module-green',
   },
 ];
 
@@ -402,94 +388,18 @@ export default function Home() {
   }
 
   return (
-    <main id="main">
-      <a className="skip-link" href="#workspace">デモへ移動</a>
+    <main id="main" className="tool-page">
+      <a className="skip-link" href="#workspace">ツールへ移動</a>
 
-      <header className="site-header">
-        <a className="brand" href="#top" aria-label="Palette Standard トップへ">
+      <header className="site-header" id="top">
+        <a className="brand" href="#workspace" aria-label="Palette Standard ツールへ">
           <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>
           <span>Palette <b>Standard</b></span>
         </a>
-        <nav aria-label="メインナビゲーション">
-          <a href="#modules">機能</a>
-          <a href="#how">処理方法</a>
-          <a className="nav-cta" href="#workspace">ツールを開く <ArrowDown aria-hidden="true" /></a>
-        </nav>
+        <p className="header-status"><LockKeyhole aria-hidden="true" /> 画像は端末内で処理</p>
       </header>
 
-      <section className="hero" id="top">
-        <div className="hero-copy">
-          <p className="eyebrow"><Sparkles aria-hidden="true" /> Color accessibility tool / Browser based</p>
-          <h1><span>色を、</span><br />伝わる情報に。</h1>
-          <p className="lead">
-            配色の問題を検出し、明度・模様・輪郭・言葉で補正する。<br />
-            制作、教育、日常のためのカラーユニバーサルデザインツールです。
-          </p>
-          <div className="hero-actions">
-            <a className="primary-button" href="#workspace">画像を解析する <ArrowDown aria-hidden="true" /></a>
-            <a className="text-link" href="#modules">機能一覧</a>
-          </div>
-          <ul className="trust-list" aria-label="Palette Standard の特徴">
-            <li><Check aria-hidden="true" /> 01 / ブラウザで完結</li>
-            <li><Check aria-hidden="true" /> 02 / 画像は端末内で処理</li>
-            <li><Check aria-hidden="true" /> 03 / P・D・T型に対応</li>
-          </ul>
-        </div>
-
-        <div className="hero-visual" aria-label="配色を識別しやすく補正するイメージ">
-          <div className="visual-label">BEFORE</div>
-          <div className="chart-card before-card">
-            <p>地域別アンケート結果</p>
-            <div className="bars" aria-hidden="true">
-              <i style={{ height: '48%' }} /><i style={{ height: '72%' }} />
-              <i style={{ height: '58%' }} /><i style={{ height: '88%' }} />
-            </div>
-          </div>
-          <div className="bridge-line" aria-hidden="true"><Sparkles /></div>
-          <div className="visual-label after-label">AFTER</div>
-          <div className="chart-card after-card">
-            <p>地域別アンケート結果</p>
-            <div className="bars" aria-hidden="true">
-              <i style={{ height: '48%' }} data-label="A" /><i style={{ height: '72%' }} data-label="B" />
-              <i style={{ height: '58%' }} data-label="C" /><i style={{ height: '88%' }} data-label="D" />
-            </div>
-            <span className="fixed-note"><Check aria-hidden="true" /> 模様とラベルを追加</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="module-strip" id="modules" aria-label="3つのコアモジュール">
-        {modules.map((module) => {
-          const Icon = module.icon;
-          return (
-            <button
-              className={`module-card ${module.accent}`}
-              key={module.title}
-              type="button"
-              onClick={() => { switchModule(module.key); document.querySelector('#workspace')?.scrollIntoView(); }}
-              aria-label={`${module.title} を試す`}
-            >
-              <span className="module-topline"><b>{module.number}</b><Icon aria-hidden="true" /></span>
-              <span className="module-label">{module.label}</span>
-              <strong>{module.title}</strong>
-              <span className="module-description">{module.description}</span>
-              <span className="module-link">試してみる <ArrowRight aria-hidden="true" /></span>
-            </button>
-          );
-        })}
-      </section>
-
       <section className="workspace-section" id="workspace">
-        <div className="section-heading">
-          <p className="section-kicker">TRY IT IN YOUR BROWSER</p>
-          <h2>{activeModule === 'bridge' ? '識別しにくい色を検出する' : activeModule === 'edu' ? '教材の文字を読みやすく補正する' : '2色の組み合わせを確認する'}</h2>
-          <p>
-            {activeModule === 'bridge' && '画像を置くだけで、色覚タイプ別の見え方と自動補正を比較できます。'}
-            {activeModule === 'edu' && '教材や黒板画像の赤系文字を抽出し、読みやすい表現へ変換します。'}
-            {activeModule === 'talk' && '2色を選ぶと、色名・明るさ・色相差から自然なアドバイスを返します。'}
-          </p>
-        </div>
-
         <div className="workspace-shell">
           <div className="workspace-tabs" role="tablist" aria-label="利用する機能">
             {modules.map((module) => (
@@ -500,7 +410,8 @@ export default function Home() {
                 aria-selected={activeModule === module.key}
                 onClick={() => switchModule(module.key)}
               >
-                <span>{module.number}</span> {module.title}
+                <span>{module.number} / {module.label}</span>
+                <strong>{module.title}</strong>
                 {activeModule === module.key && <Check aria-label="選択中" />}
               </button>
             ))}
@@ -634,53 +545,6 @@ export default function Home() {
           )}
         </div>
       </section>
-
-      <section className="how-section" id="how">
-        <div className="section-intro">
-          <p className="dark-kicker">FROM DETECTION TO SOLUTION</p>
-          <h2>画像を、端末内で<br /><span>検出から補正まで。</span></h2>
-        </div>
-        <div className="steps-grid">
-          <article>
-            <span>STEP 01</span><div className="step-icon blue"><ImageUp aria-hidden="true" /></div>
-            <h3>置く・かざす</h3><p>画像を選ぶだけ。複雑な設定や専門知識は必要ありません。</p>
-          </article>
-          <article>
-            <span>STEP 02</span><div className="step-icon orange"><ScanSearch aria-hidden="true" /></div>
-            <h3>見つける</h3><p>RGBからLMS・HSVへ変換し、識別しにくい領域を端末内で解析。</p>
-          </article>
-          <article>
-            <span>STEP 03</span><div className="step-icon green"><WandSparkles aria-hidden="true" /></div>
-            <h3>伝わる形にする</h3><p>明度・模様・輪郭・ことばを加え、色以外の手掛かりも残します。</p>
-          </article>
-        </div>
-      </section>
-
-      <section className="principles" id="principles">
-        <div className="principle-copy">
-          <p className="section-kicker">DESIGNED FOR DIFFERENCE</p>
-          <h2>色を消しても、<br />意味が残る設計。</h2>
-          <p>見やすい配色に加えて、文字・形・模様・明暗を組み合わせます。色覚タイプや利用環境が違っても、大切な情報へたどり着けることを基準にしています。</p>
-        </div>
-        <div className="principle-list">
-          <div><CheckCircle2 aria-hidden="true" /><span><strong>十分なコントラスト</strong>通常文字は WCAG 2.2 AA の 4.5:1 以上を基準に。</span></div>
-          <div><Layers3 aria-hidden="true" /><span><strong>色＋もう1つの手掛かり</strong>アイコン、ラベル、模様、太さを必ず併用。</span></div>
-          <div><BookOpenCheck aria-hidden="true" /><span><strong>検証を重ねる</strong>P・D・T型、グレースケール、実機、当事者評価へ。</span></div>
-        </div>
-      </section>
-
-      <section className="vision-section">
-        <p>OUR VISION</p>
-        <h2>色で迷わないことを、<br /><span>社会の標準へ。</span></h2>
-        <p>創作・教育・暮らしのなかで、色の違いが情報の壁にならない状態を目指します。</p>
-        <a className="light-button" href="#workspace">ツールを開く <ArrowRight aria-hidden="true" /></a>
-      </section>
-
-      <footer>
-        <a className="brand" href="#top"><span className="brand-mark" aria-hidden="true"><i /><i /><i /></span><span>Palette <b>Standard</b></span></a>
-        <p>Color accessibility for everyone.</p>
-        <p>© 2026 Palette Standard</p>
-      </footer>
     </main>
   );
 }
