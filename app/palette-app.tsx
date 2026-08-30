@@ -1,25 +1,28 @@
 'use client';
 
 import {
+  Camera,
+  CameraOff,
   Check,
   CheckCircle2,
+  Crosshair,
   Download,
   Eye,
   ImageUp,
   Info,
   LockKeyhole,
   ScanSearch,
-  Sparkles,
   Upload,
   WandSparkles,
 } from 'lucide-react';
-import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, DragEvent, useEffect, useRef, useState } from 'react';
 
-type ModuleKey = 'bridge' | 'edu' | 'talk';
+type ModuleKey = 'bridge' | 'edu' | 'camera';
 type VisionType = 'C' | 'P' | 'D' | 'T';
 type BridgeMode = 'simulate' | 'fix';
 type BridgeFixStyle = 'color' | 'pattern' | 'both';
 type EduMode = 'outline' | 'brightness';
+type CameraStatus = 'idle' | 'starting' | 'active' | 'error';
 
 const modules = [
   {
@@ -35,10 +38,10 @@ const modules = [
     title: 'Edu Vision',
   },
   {
-    key: 'talk' as const,
+    key: 'camera' as const,
     number: '03',
     label: '暮らす',
-    title: 'Color Talk',
+    title: 'Color Lens',
   },
 ];
 
@@ -161,52 +164,24 @@ function patternInkForColor(r: number, g: number, b: number, x: number, y: numbe
   return l > 0.55 ? 24 : 245;
 }
 
-function luminance({ r, g, b }: ReturnType<typeof hexToRgb>) {
-  const convert = (value: number) => {
-    const channel = value / 255;
-    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-  };
-  return 0.2126 * convert(r) + 0.7152 * convert(g) + 0.0722 * convert(b);
-}
-
-function contrastRatio(first: string, second: string) {
-  const a = luminance(hexToRgb(first));
-  const b = luminance(hexToRgb(second));
-  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
-}
-
 function colorName(hex: string) {
   const { r, g, b } = hexToRgb(hex);
   const { h, s, l } = rgbToHsl(r, g, b);
-  if (s < 0.12) {
-    if (l < 0.18) return '黒に近い色';
-    if (l > 0.86) return '白に近い色';
+  if (l < 0.1) return '黒';
+  if (l > 0.94) return '白';
+  if (s < 0.14) {
+    if (l < 0.32) return '濃いグレー';
+    if (l > 0.74) return '明るいグレー';
     return 'グレー';
   }
-  const tone = l < 0.34 ? '深い' : l > 0.72 ? '明るい' : '';
-  const name = h < 15 || h >= 345 ? '赤' : h < 42 ? 'オレンジ' : h < 70 ? '黄' : h < 165 ? '緑' : h < 200 ? '青緑' : h < 255 ? '青' : h < 295 ? '紫' : h < 345 ? 'ピンク' : '赤';
+  if (h >= 15 && h < 50 && l < 0.38) return '茶色';
+  const tone = l < 0.3 ? '濃い' : l > 0.76 ? '明るい' : '';
+  const name = h < 15 || h >= 345 ? '赤' : h < 45 ? 'オレンジ' : h < 70 ? '黄' : h < 95 ? '黄緑' : h < 165 ? '緑' : h < 195 ? '青緑' : h < 220 ? '水色' : h < 260 ? '青' : h < 290 ? '青紫' : h < 330 ? '紫' : 'ピンク';
   return `${tone}${name}`;
 }
 
-function getColorAdvice(first: string, second: string) {
-  const aRgb = hexToRgb(first);
-  const bRgb = hexToRgb(second);
-  const a = rgbToHsl(aRgb.r, aRgb.g, aRgb.b);
-  const b = rgbToHsl(bRgb.r, bRgb.g, bRgb.b);
-  const hueDiff = Math.min(Math.abs(a.h - b.h), 360 - Math.abs(a.h - b.h));
-  const lightnessDiff = Math.abs(a.l - b.l);
-  const contrast = contrastRatio(first, second);
-  let relation = '近い色どうしの、落ち着いた組み合わせです。';
-  if (hueDiff > 145) relation = '反対側の色相を使った、メリハリのある組み合わせです。';
-  else if (hueDiff > 75) relation = 'ほどよく離れた色相で、バランスのよい組み合わせです。';
-  else if (hueDiff < 28) relation = '同系色でまとまりがあり、自然になじむ組み合わせです。';
-  const visibility =
-    contrast >= 4.5
-      ? '明るさの差も十分で、文字や小さな要素にも使いやすいです。'
-      : lightnessDiff >= 0.25
-        ? '明るさの差はありますが、小さな文字ではコントラストを確認しましょう。'
-        : '明るさが近いため、並べるときは白い境界・模様・ラベルを加えると安心です。';
-  return { relation, visibility, contrast, hueDiff };
+function rgbToHex(r: number, g: number, b: number) {
+  return `#${[r, g, b].map((value) => Math.round(value).toString(16).padStart(2, '0')).join('')}`.toUpperCase();
 }
 
 export default function Home() {
@@ -217,14 +192,19 @@ export default function Home() {
   const [eduMode, setEduMode] = useState<EduMode>('outline');
   const [fileName, setFileName] = useState('サンプル資料');
   const [risk, setRisk] = useState(28);
-  const [firstColor, setFirstColor] = useState('#005AFF');
-  const [secondColor, setSecondColor] = useState('#F6AA00');
+  const [cameraStatus, setCameraStatus] = useState<CameraStatus>('idle');
+  const [cameraError, setCameraError] = useState('');
+  const [detectedColor, setDetectedColor] = useState({ r: 132, g: 145, b: 158, hex: '#84919E', name: 'グレー' });
   const [isDragging, setIsDragging] = useState(false);
   const sourceCanvasRef = useRef<HTMLCanvasElement>(null);
   const resultCanvasRef = useRef<HTMLCanvasElement>(null);
   const sourceDataRef = useRef<ImageData | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const talkAdvice = useMemo(() => getColorAdvice(firstColor, secondColor), [firstColor, secondColor]);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const cameraCanvasRef = useRef<HTMLCanvasElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const cameraTimerRef = useRef<number | null>(null);
+  const cameraRequestRef = useRef(0);
   const activeVisionName = visionLabels[vision].split('（')[0];
   const activeFixLabel = bridgeFixLabels[bridgeFixStyle];
 
@@ -393,6 +373,8 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeModule, vision, bridgeMode, bridgeFixStyle, eduMode]);
 
+  useEffect(() => () => releaseCamera(false), []);
+
   function handleImage(file?: File) {
     if (!file || !file.type.startsWith('image/')) return;
     if (file.size > 12 * 1024 * 1024) {
@@ -432,6 +414,93 @@ export default function Home() {
     handleImage(event.dataTransfer.files?.[0]);
   }
 
+  function sampleCameraColor() {
+    const video = videoRef.current;
+    const canvas = cameraCanvasRef.current;
+    if (!video || !canvas || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+    if (!video.videoWidth || !video.videoHeight) return;
+    const sampleSize = Math.max(12, Math.round(Math.min(video.videoWidth, video.videoHeight) * 0.04));
+    canvas.width = 20;
+    canvas.height = 20;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) return;
+    context.drawImage(
+      video,
+      (video.videoWidth - sampleSize) / 2,
+      (video.videoHeight - sampleSize) / 2,
+      sampleSize,
+      sampleSize,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    let count = 0;
+    for (let pixel = 0; pixel < pixels.length; pixel += 4) {
+      if (pixels[pixel + 3] === 0) continue;
+      r += pixels[pixel];
+      g += pixels[pixel + 1];
+      b += pixels[pixel + 2];
+      count += 1;
+    }
+    if (!count) return;
+    r = Math.round(r / count);
+    g = Math.round(g / count);
+    b = Math.round(b / count);
+    const hex = rgbToHex(r, g, b);
+    setDetectedColor({ r, g, b, hex, name: colorName(hex) });
+  }
+
+  function releaseCamera(updateState = true) {
+    cameraRequestRef.current += 1;
+    if (cameraTimerRef.current !== null) {
+      window.clearInterval(cameraTimerRef.current);
+      cameraTimerRef.current = null;
+    }
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    if (updateState) setCameraStatus('idle');
+  }
+
+  async function startCamera() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('このブラウザではカメラを利用できません。');
+      setCameraStatus('error');
+      return;
+    }
+    setCameraStatus('starting');
+    setCameraError('');
+    const requestId = cameraRequestRef.current + 1;
+    cameraRequestRef.current = requestId;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      });
+      if (cameraRequestRef.current !== requestId) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      cameraStreamRef.current = stream;
+      if (!videoRef.current) return;
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+      sampleCameraColor();
+      cameraTimerRef.current = window.setInterval(sampleCameraColor, 250);
+      setCameraStatus('active');
+    } catch (error) {
+      releaseCamera(false);
+      const name = error instanceof DOMException ? error.name : '';
+      setCameraError(name === 'NotAllowedError' ? 'カメラの使用が許可されていません。' : name === 'NotFoundError' ? '利用できるカメラが見つかりません。' : 'カメラを開始できませんでした。');
+      setCameraStatus('error');
+    }
+  }
+
   function downloadResult() {
     const canvas = resultCanvasRef.current;
     if (!canvas) return;
@@ -443,8 +512,9 @@ export default function Home() {
   }
 
   function switchModule(module: ModuleKey) {
+    if (activeModule === 'camera' && module !== 'camera') releaseCamera();
     setActiveModule(module);
-    if (module === 'talk') return;
+    if (module === 'camera') return;
     if (fileName.startsWith('サンプル')) {
       window.setTimeout(() => drawSample(module), 0);
     } else {
@@ -461,7 +531,7 @@ export default function Home() {
           <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>
           <span>Palette <b>Standard</b></span>
         </a>
-        <p className="header-status"><LockKeyhole aria-hidden="true" /> 画像は端末内で処理</p>
+        <p className="header-status"><LockKeyhole aria-hidden="true" /> 画像・映像は端末内で処理</p>
       </header>
 
       <section className="workspace-section" id="workspace">
@@ -482,7 +552,7 @@ export default function Home() {
             ))}
           </div>
 
-          {activeModule !== 'talk' ? (
+          {activeModule !== 'camera' ? (
             <div className="image-tool">
               <aside className="tool-sidebar">
                 <div>
@@ -598,33 +668,40 @@ export default function Home() {
               </div>
             </div>
           ) : (
-            <div className="talk-tool">
-              <div className="color-pickers">
-                <label>
-                  <span>COLOR A</span>
-                  <input type="color" value={firstColor} onChange={(event) => setFirstColor(event.target.value.toUpperCase())} />
-                  <strong>{colorName(firstColor)}</strong>
-                  <code>{firstColor}</code>
-                </label>
-                <span className="plus" aria-hidden="true">＋</span>
-                <label>
-                  <span>COLOR B</span>
-                  <input type="color" value={secondColor} onChange={(event) => setSecondColor(event.target.value.toUpperCase())} />
-                  <strong>{colorName(secondColor)}</strong>
-                  <code>{secondColor}</code>
-                </label>
+            <div className="camera-tool">
+              <div className={`camera-stage is-${cameraStatus}`}>
+                <video ref={videoRef} muted playsInline aria-label="色を読み取るカメラ映像" />
+                <canvas ref={cameraCanvasRef} className="visually-hidden" aria-hidden="true" />
+                {cameraStatus === 'active' ? (
+                  <div className="camera-reticle" aria-hidden="true"><Crosshair /></div>
+                ) : (
+                  <div className="camera-empty">
+                    <Camera aria-hidden="true" />
+                    <h3>{cameraStatus === 'starting' ? 'カメラを起動中' : cameraStatus === 'error' ? 'カメラを使えません' : 'カメラで色を調べる'}</h3>
+                    {cameraError && <p role="alert">{cameraError}</p>}
+                    <button type="button" onClick={startCamera} disabled={cameraStatus === 'starting'}>
+                      <Camera aria-hidden="true" /> {cameraStatus === 'error' ? 'もう一度試す' : 'カメラを開始'}
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="talk-result" aria-live="polite">
-                <p className="tool-kicker"><Sparkles aria-hidden="true" /> COLOR TALK ADVICE</p>
-                <h3>{colorName(firstColor)}と{colorName(secondColor)}の組み合わせ</h3>
-                <p>{talkAdvice.relation} {talkAdvice.visibility}</p>
+
+              <aside className="camera-readout">
+                <p className="tool-kicker">CENTER COLOR</p>
+                <p className="camera-guide"><Crosshair aria-hidden="true" /> 中央の枠に調べたい色を合わせる</p>
+                <div className="detected-swatch" style={{ backgroundColor: detectedColor.hex }} aria-label={`検出した色 ${detectedColor.name}`} />
+                <h3 aria-live="polite">{detectedColor.name}</h3>
                 <dl>
-                  <div><dt>色相の差</dt><dd>{Math.round(talkAdvice.hueDiff)}°</dd></div>
-                  <div><dt>コントラスト</dt><dd>{talkAdvice.contrast.toFixed(2)} : 1</dd></div>
-                  <div><dt>文字利用</dt><dd>{talkAdvice.contrast >= 4.5 ? 'AA目安を満たす' : '背景・文字には要調整'}</dd></div>
+                  <div><dt>HEX</dt><dd>{detectedColor.hex}</dd></div>
+                  <div><dt>RGB</dt><dd>{detectedColor.r}, {detectedColor.g}, {detectedColor.b}</dd></div>
                 </dl>
-                <div className="cue-tip"><Info aria-hidden="true" /><span><strong>色だけに頼らないコツ</strong>服なら素材感や柄、UIなら文字・アイコン・枠線も一緒に使いましょう。</span></div>
-              </div>
+                {cameraStatus === 'active' && (
+                  <button className="camera-stop" type="button" onClick={() => releaseCamera()}>
+                    <CameraOff aria-hidden="true" /> カメラを停止
+                  </button>
+                )}
+                <div className="privacy-note"><LockKeyhole aria-hidden="true" /><span><strong>端末内で判定</strong>映像は保存・送信されません。</span></div>
+              </aside>
             </div>
           )}
         </div>
