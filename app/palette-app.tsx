@@ -15,6 +15,12 @@ import {
   WandSparkles,
 } from 'lucide-react';
 import { ChangeEvent, DragEvent, useEffect, useRef, useState } from 'react';
+import {
+  correctImageColors,
+  simulateCvdColor,
+  type CorrectableVisionType,
+  type CorrectionMetrics,
+} from '@/lib/color-vision';
 
 type ModuleKey = 'bridge' | 'camera';
 type VisionType = 'C' | 'P' | 'D' | 'T' | 'A';
@@ -65,12 +71,6 @@ const bridgeFixLabels: Record<BridgeFixStyle, string> = {
   both: '色＋模様',
 };
 
-const matrices: Record<Exclude<VisionType, 'C' | 'A'>, number[]> = {
-  P: [0.152286, 1.052583, -0.204868, 0.114503, 0.786281, 0.099216, -0.003882, -0.048116, 1.051998],
-  D: [0.367322, 0.860646, -0.227968, 0.280085, 0.672501, 0.047413, -0.01182, 0.04294, 0.968881],
-  T: [1.255528, -0.076749, -0.178779, -0.078411, 0.930809, 0.147602, 0.004733, 0.691367, 0.3039],
-};
-
 function clamp(value: number) {
   return Math.max(0, Math.min(255, value));
 }
@@ -107,53 +107,7 @@ function simulateVisionColor(r: number, g: number, b: number, type: VisionType) 
     const gray = clamp(0.2126 * r + 0.7152 * g + 0.0722 * b);
     return { r: gray, g: gray, b: gray };
   }
-  const matrix = matrices[type];
-  return {
-    r: clamp(matrix[0] * r + matrix[1] * g + matrix[2] * b),
-    g: clamp(matrix[3] * r + matrix[4] * g + matrix[5] * b),
-    b: clamp(matrix[6] * r + matrix[7] * g + matrix[8] * b),
-  };
-}
-
-function cudTargetColor(hue: number, lightness: number, type: VisionType) {
-  if (type === 'P' || type === 'D') {
-    if (hue < 18 || hue >= 345) return lightness < 0.35 ? { r: 153, g: 0, b: 153 } : { r: 246, g: 170, b: 0 };
-    if (hue < 48) return { r: 246, g: 170, b: 0 };
-    if (hue < 78) return { r: 255, g: 241, b: 0 };
-    if (hue < 175) return { r: 0, g: 90, b: 255 };
-    if (hue < 270) return { r: 77, g: 196, b: 255 };
-    if (hue < 330) return { r: 153, g: 0, b: 153 };
-    return { r: 255, g: 128, b: 130 };
-  }
-  if (type === 'T') {
-    if (hue < 18 || hue >= 345) return { r: 77, g: 196, b: 255 };
-    if (hue < 48) return { r: 246, g: 170, b: 0 };
-    if (hue < 78) return { r: 255, g: 241, b: 0 };
-    if (hue < 210) return { r: 255, g: 75, b: 0 };
-    if (hue < 270) return { r: 0, g: 90, b: 255 };
-    return { r: 153, g: 0, b: 153 };
-  }
-  if (hue < 18 || hue >= 345) return { r: 255, g: 75, b: 0 };
-  if (hue < 48) return { r: 246, g: 170, b: 0 };
-  if (hue < 78) return { r: 255, g: 241, b: 0 };
-  if (hue < 175) return { r: 3, g: 175, b: 122 };
-  if (hue < 210) return { r: 77, g: 196, b: 255 };
-  if (hue < 270) return { r: 0, g: 90, b: 255 };
-  if (hue < 330) return { r: 153, g: 0, b: 153 };
-  return { r: 255, g: 128, b: 130 };
-}
-
-function correctColorForVision(r: number, g: number, b: number, type: VisionType) {
-  if (type === 'C') return { r, g, b };
-  const { h, s, l } = rgbToHsl(r, g, b);
-  if (s <= 0.2) return { r, g, b };
-  const target = cudTargetColor(h, l, type);
-  const mix = Math.min(0.76, 0.32 + s * 0.46);
-  return {
-    r: clamp(r * (1 - mix) + target.r * mix),
-    g: clamp(g * (1 - mix) + target.g * mix),
-    b: clamp(b * (1 - mix) + target.b * mix),
-  };
+  return simulateCvdColor(r, g, b, type);
 }
 
 function patternInkForColor(r: number, g: number, b: number, x: number, y: number) {
@@ -207,6 +161,7 @@ export default function Home() {
   const [cameraError, setCameraError] = useState('');
   const [detectedColor, setDetectedColor] = useState({ r: 132, g: 145, b: 158, hex: '#84919E', name: 'グレー' });
   const [isDragging, setIsDragging] = useState(false);
+  const [correctionMetrics, setCorrectionMetrics] = useState<CorrectionMetrics | null>(null);
   const sourceCanvasRef = useRef<HTMLCanvasElement>(null);
   const resultCanvasRef = useRef<HTMLCanvasElement>(null);
   const sourceDataRef = useRef<ImageData | null>(null);
@@ -255,7 +210,9 @@ export default function Home() {
       context.font = '600 20px sans-serif';
       context.fillStyle = '#536170';
       context.fillText('4つの地域を色で比較', 60, 118);
-      const colors = ['#ff4b00', '#03af7a', '#f6aa00', '#77d9a8'];
+      // Intentionally includes red/green/brown combinations that are often
+      // confused under D-type simulation so the correction can be verified.
+      const colors = ['#dc4637', '#469141', '#915c23', '#145f7d'];
       const heights = [250, 335, 205, 285];
       colors.forEach((color, index) => {
         const x = 95 + index * 205;
@@ -290,41 +247,41 @@ export default function Home() {
     const data = output.data;
     const effectiveMode: BridgeMode = nextVision === 'C' ? 'simulate' : nextBridgeMode;
     const fixStyle = nextVision === 'A' ? 'pattern' : nextFixStyle;
-    for (let pixel = 0; pixel < data.length; pixel += 4) {
+    let nextMetrics: CorrectionMetrics | null = null;
+    if (effectiveMode === 'fix') {
+      const useColor = fixStyle === 'color' || fixStyle === 'both';
+      const usePattern = fixStyle === 'pattern' || fixStyle === 'both';
+      if (useColor && (nextVision === 'P' || nextVision === 'D' || nextVision === 'T')) {
+        const correction = correctImageColors(source.data, source.width, source.height, nextVision as CorrectableVisionType);
+        data.set(correction.data);
+        nextMetrics = correction.metrics;
+      }
+      if (usePattern) {
+        for (let pixel = 0; pixel < data.length; pixel += 4) {
+          const r = source.data[pixel];
+          const g = source.data[pixel + 1];
+          const b = source.data[pixel + 2];
+          const index = pixel / 4;
+          const x = index % source.width;
+          const y = Math.floor(index / source.width);
+          const ink = patternInkForColor(r, g, b, x, y);
+          if (ink === null) continue;
+          data[pixel] = clamp(data[pixel] * 0.28 + ink * 0.72);
+          data[pixel + 1] = clamp(data[pixel + 1] * 0.28 + ink * 0.72);
+          data[pixel + 2] = clamp(data[pixel + 2] * 0.28 + ink * 0.72);
+        }
+      }
+    } else {
+      for (let pixel = 0; pixel < data.length; pixel += 4) {
         const r = source.data[pixel];
         const g = source.data[pixel + 1];
         const b = source.data[pixel + 2];
-        let nr: number;
-        let ng: number;
-        let nb: number;
-        if (effectiveMode === 'fix') {
-          const useColor = fixStyle === 'color' || fixStyle === 'both';
-          const usePattern = fixStyle === 'pattern' || fixStyle === 'both';
-          const corrected = useColor ? correctColorForVision(r, g, b, nextVision) : { r, g, b };
-          nr = corrected.r;
-          ng = corrected.g;
-          nb = corrected.b;
-          if (usePattern) {
-            const index = pixel / 4;
-            const x = index % source.width;
-            const y = Math.floor(index / source.width);
-            const ink = patternInkForColor(r, g, b, x, y);
-            if (ink !== null) {
-              nr = clamp(nr * 0.28 + ink * 0.72);
-              ng = clamp(ng * 0.28 + ink * 0.72);
-              nb = clamp(nb * 0.28 + ink * 0.72);
-            }
-          }
-        } else {
-          const simulated = simulateVisionColor(r, g, b, nextVision);
-          nr = simulated.r;
-          ng = simulated.g;
-          nb = simulated.b;
-        }
-        data[pixel] = nr;
-        data[pixel + 1] = ng;
-        data[pixel + 2] = nb;
+        const simulated = simulateVisionColor(r, g, b, nextVision);
+        data[pixel] = simulated.r;
+        data[pixel + 1] = simulated.g;
+        data[pixel + 2] = simulated.b;
       }
+    }
 
     if (effectiveMode === 'fix' && nextPreset === 'education') {
       const mask = new Uint8Array(source.width * source.height);
@@ -353,6 +310,7 @@ export default function Home() {
       }
     }
     context.putImageData(output, 0, 0);
+    setCorrectionMetrics(nextMetrics);
   }
 
   useEffect(() => {
@@ -640,6 +598,11 @@ export default function Home() {
                       </button>
                     ))}
                     {vision === 'A' && <p className="control-note">色の置換ではなく、模様で情報を区別します。</p>}
+                    {vision !== 'A' && (
+                      <p className="control-note">
+                        CUD推奨配色を候補に、画像内で混同しやすい色の組をMachado 2009モデルで再評価。明るさを保ちながら推定色差を広げます。
+                      </p>
+                    )}
                   </fieldset>
                 )}
 
@@ -649,6 +612,19 @@ export default function Home() {
               <div className="canvas-workspace">
                 <div className="analysis-bar">
                   <div><span className="status-dot" /> {fileName}</div>
+                  {bridgeMode === 'fix' && correctionMetrics && (
+                    <div className="correction-metrics" aria-live="polite">
+                      {correctionMetrics.conflictPairsBefore === 0 ? (
+                        <span>混同ペアは検出されませんでした</span>
+                      ) : (
+                        <>
+                          <span>混同ペア <b>{correctionMetrics.conflictPairsBefore} → {correctionMetrics.conflictPairsAfter}</b></span>
+                          <span>平均 ΔE00 <b>{correctionMetrics.averageDeltaEBefore.toFixed(1)} → {correctionMetrics.averageDeltaEAfter.toFixed(1)}</b></span>
+                          <span>輝度ずれ <b>{(correctionMetrics.averageLuminanceDrift * 100).toFixed(1)}%</b></span>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div
                   className={`canvas-grid ${isDragging ? 'is-dragging' : ''}`}
