@@ -11,6 +11,7 @@ import {
   ImageUp,
   Info,
   LockKeyhole,
+  Palette,
   Upload,
   WandSparkles,
 } from 'lucide-react';
@@ -529,7 +530,7 @@ export default function Home() {
 
       <header className="site-header" id="top">
         <a className="brand" href="#workspace" aria-label="BridgePalette ツールへ">
-          <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>
+          <span className="brand-mark" aria-hidden="true"><Palette /></span>
           <span>Bridge<b>Palette</b></span>
         </a>
         <p className="header-status"><LockKeyhole aria-hidden="true" /> 画像・映像は端末内で処理</p>
