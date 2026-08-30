@@ -18,6 +18,7 @@ import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 're
 type ModuleKey = 'bridge' | 'edu' | 'talk';
 type VisionType = 'C' | 'P' | 'D' | 'T';
 type BridgeMode = 'simulate' | 'fix';
+type BridgeFixStyle = 'color' | 'pattern' | 'both';
 type EduMode = 'outline' | 'brightness';
 
 const modules = [
@@ -46,6 +47,12 @@ const visionLabels: Record<VisionType, string> = {
   P: 'P型（赤系）',
   D: 'D型（緑系）',
   T: 'T型（青黄系）',
+};
+
+const bridgeFixLabels: Record<BridgeFixStyle, string> = {
+  color: '色を変える',
+  pattern: '模様を付ける',
+  both: '色＋模様',
 };
 
 const matrices: Record<Exclude<VisionType, 'C'>, number[]> = {
@@ -134,6 +141,26 @@ function correctColorForVision(r: number, g: number, b: number, type: VisionType
   };
 }
 
+function patternInkForColor(r: number, g: number, b: number, x: number, y: number) {
+  const { h, s, l } = rgbToHsl(r, g, b);
+  if (s <= 0.2) return null;
+  const positiveDiagonal = (x + y) % 16 < 2;
+  const negativeDiagonal = ((x - y) % 16 + 16) % 16 < 2;
+  let marked = false;
+
+  if (l < 0.35) marked = positiveDiagonal || negativeDiagonal;
+  else if (h < 18 || h >= 345) marked = positiveDiagonal;
+  else if (h < 78) marked = x % 14 < 3 && y % 14 < 3;
+  else if (h < 175) marked = y % 13 < 2;
+  else if (h < 210) marked = x % 13 < 2;
+  else if (h < 270) marked = negativeDiagonal;
+  else if (h < 330) marked = x % 15 < 2 || y % 15 < 2;
+  else marked = (x + 7) % 14 < 3 && (y + 7) % 14 < 3;
+
+  if (!marked) return null;
+  return l > 0.55 ? 24 : 245;
+}
+
 function luminance({ r, g, b }: ReturnType<typeof hexToRgb>) {
   const convert = (value: number) => {
     const channel = value / 255;
@@ -186,6 +213,7 @@ export default function Home() {
   const [activeModule, setActiveModule] = useState<ModuleKey>('bridge');
   const [vision, setVision] = useState<VisionType>('D');
   const [bridgeMode, setBridgeMode] = useState<BridgeMode>('simulate');
+  const [bridgeFixStyle, setBridgeFixStyle] = useState<BridgeFixStyle>('color');
   const [eduMode, setEduMode] = useState<EduMode>('outline');
   const [fileName, setFileName] = useState('サンプル資料');
   const [risk, setRisk] = useState(28);
@@ -198,6 +226,7 @@ export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null);
   const talkAdvice = useMemo(() => getColorAdvice(firstColor, secondColor), [firstColor, secondColor]);
   const activeVisionName = visionLabels[vision].split('（')[0];
+  const activeFixLabel = bridgeFixLabels[bridgeFixStyle];
 
   function drawSample(module: ModuleKey = 'bridge') {
     const canvas = sourceCanvasRef.current;
@@ -256,7 +285,7 @@ export default function Home() {
     processResult(vision, bridgeMode, eduMode, module);
   }
 
-  function processResult(nextVision = vision, nextBridgeMode = bridgeMode, nextEduMode = eduMode, module = activeModule) {
+  function processResult(nextVision = vision, nextBridgeMode = bridgeMode, nextEduMode = eduMode, module = activeModule, nextFixStyle = bridgeFixStyle) {
     const result = resultCanvasRef.current;
     const source = sourceDataRef.current;
     if (!result || !source) return;
@@ -317,11 +346,25 @@ export default function Home() {
         let ng: number;
         let nb: number;
         if (nextBridgeMode === 'fix') {
-          const corrected = correctColorForVision(r, g, b, nextVision);
+          const { s } = rgbToHsl(r, g, b);
+          const useColor = nextFixStyle === 'color' || nextFixStyle === 'both';
+          const usePattern = nextFixStyle === 'pattern' || nextFixStyle === 'both';
+          const corrected = useColor ? correctColorForVision(r, g, b, nextVision) : { r, g, b };
           nr = corrected.r;
           ng = corrected.g;
           nb = corrected.b;
-          if (Math.abs(nr - r) + Math.abs(ng - g) + Math.abs(nb - b) > 48) affected += 1;
+          if (s > 0.2) affected += 1;
+          if (usePattern) {
+            const index = pixel / 4;
+            const x = index % source.width;
+            const y = Math.floor(index / source.width);
+            const ink = patternInkForColor(r, g, b, x, y);
+            if (ink !== null) {
+              nr = clamp(nr * 0.28 + ink * 0.72);
+              ng = clamp(ng * 0.28 + ink * 0.72);
+              nb = clamp(nb * 0.28 + ink * 0.72);
+            }
+          }
         } else {
           const simulated = simulateVisionColor(r, g, b, nextVision);
           nr = simulated.r;
@@ -348,7 +391,7 @@ export default function Home() {
     processResult();
     // Canvas state is intentionally recalculated from the current controls.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeModule, vision, bridgeMode, eduMode]);
+  }, [activeModule, vision, bridgeMode, bridgeFixStyle, eduMode]);
 
   function handleImage(file?: File) {
     if (!file || !file.type.startsWith('image/')) return;
@@ -476,10 +519,30 @@ export default function Home() {
                         {bridgeMode === 'simulate' && <Check aria-label="選択中" />}
                       </button>
                       <button className="wide-option" type="button" aria-pressed={bridgeMode === 'fix'} onClick={() => { setBridgeMode('fix'); processResult(vision, 'fix', eduMode); }}>
-                        <WandSparkles aria-hidden="true" /> {activeVisionName}向けに色を補正
+                        <WandSparkles aria-hidden="true" /> {activeVisionName}向けに補正
                         {bridgeMode === 'fix' && <Check aria-label="選択中" />}
                       </button>
                     </fieldset>
+                    {bridgeMode === 'fix' && (
+                      <fieldset className="control-group">
+                        <legend>補正方法</legend>
+                        {(Object.keys(bridgeFixLabels) as BridgeFixStyle[]).map((style) => (
+                          <button
+                            className="wide-option"
+                            key={style}
+                            type="button"
+                            aria-pressed={bridgeFixStyle === style}
+                            onClick={() => {
+                              setBridgeFixStyle(style);
+                              processResult(vision, 'fix', eduMode, activeModule, style);
+                            }}
+                          >
+                            {bridgeFixLabels[style]}
+                            {bridgeFixStyle === style && <Check aria-label="選択中" />}
+                          </button>
+                        ))}
+                      </fieldset>
+                    )}
                   </>
                 ) : (
                   <fieldset className="control-group">
@@ -522,7 +585,7 @@ export default function Home() {
                   <figure>
                     <figcaption>
                       <span>{activeModule === 'bridge' ? (bridgeMode === 'fix' ? 'FIXED' : visionLabels[vision]) : 'ENHANCED'}</span>
-                      {activeModule === 'bridge' ? (bridgeMode === 'fix' ? `${activeVisionName}向け色補正` : 'シミュレーション') : '教材補正'}
+                      {activeModule === 'bridge' ? (bridgeMode === 'fix' ? `${activeVisionName}向け・${activeFixLabel}` : 'シミュレーション') : '教材補正'}
                     </figcaption>
                     <canvas ref={resultCanvasRef} aria-label="処理後画像のプレビュー" />
                   </figure>
