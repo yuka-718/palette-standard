@@ -1122,6 +1122,33 @@ footer p { font-size: 8px; }
   min-height: calc(100vh - 168px);
 }
 
+.source-actions {
+  display: grid;
+  margin-top: 20px;
+  gap: 7px;
+}
+
+.source-actions .upload-button { margin-top: 0; }
+
+.capture-button {
+  display: flex;
+  width: 100%;
+  min-height: 39px;
+  padding: 0 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.capture-button svg { width: 16px; }
+
 .camera-tool {
   display: grid;
   min-height: calc(100vh - 168px);

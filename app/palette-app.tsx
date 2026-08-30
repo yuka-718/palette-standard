@@ -200,6 +200,7 @@ export default function Home() {
   const resultCanvasRef = useRef<HTMLCanvasElement>(null);
   const sourceDataRef = useRef<ImageData | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const captureInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraCanvasRef = useRef<HTMLCanvasElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
@@ -406,6 +407,7 @@ export default function Home() {
 
   function handleFileInput(event: ChangeEvent<HTMLInputElement>) {
     handleImage(event.target.files?.[0]);
+    event.target.value = '';
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
@@ -561,9 +563,15 @@ export default function Home() {
                   <p>PNG・JPG・WebP / 最大 12MB</p>
                 </div>
                 <input ref={inputRef} className="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp" onChange={handleFileInput} />
-                <button className="upload-button" type="button" onClick={() => inputRef.current?.click()}>
-                  <Upload aria-hidden="true" /> 画像を選ぶ
-                </button>
+                <input ref={captureInputRef} className="visually-hidden" type="file" accept="image/*" capture="environment" onChange={handleFileInput} />
+                <div className="source-actions">
+                  <button className="upload-button" type="button" onClick={() => inputRef.current?.click()}>
+                    <Upload aria-hidden="true" /> 画像を選ぶ
+                  </button>
+                  <button className="capture-button" type="button" onClick={() => captureInputRef.current?.click()}>
+                    <Camera aria-hidden="true" /> カメラで撮る
+                  </button>
+                </div>
 
                 {activeModule === 'bridge' ? (
                   <>
