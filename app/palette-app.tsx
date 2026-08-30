@@ -18,7 +18,7 @@ import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 're
 type ModuleKey = 'bridge' | 'edu' | 'talk';
 type VisionType = 'C' | 'P' | 'D' | 'T';
 type BridgeMode = 'simulate' | 'fix';
-type EduMode = 'outline' | 'brightness' | 'underline';
+type EduMode = 'outline' | 'brightness';
 
 const modules = [
   {
@@ -308,25 +308,6 @@ export default function Home() {
         }
       }
       context.putImageData(output, 0, 0);
-      if (nextEduMode === 'underline') {
-        context.strokeStyle = '#ffffff';
-        context.lineWidth = Math.max(5, source.width / 150);
-        context.setLineDash([16, 8]);
-        for (let y = 12; y < source.height - 12; y += 18) {
-          let start = -1;
-          for (let x = 0; x < source.width; x += 1) {
-            const found = mask[y * source.width + x] === 1;
-            if (found && start < 0) start = x;
-            if ((!found || x === source.width - 1) && start >= 0) {
-              if (x - start > 18) {
-                context.beginPath(); context.moveTo(start, y + 9); context.lineTo(x, y + 9); context.stroke();
-              }
-              start = -1;
-            }
-          }
-        }
-        context.setLineDash([]);
-      }
     } else {
       for (let pixel = 0; pixel < data.length; pixel += 4) {
         const r = source.data[pixel];
@@ -506,7 +487,6 @@ export default function Home() {
                     {([
                       ['outline', '白い縁取り'],
                       ['brightness', '白文字へ変換'],
-                      ['underline', '下線を追加'],
                     ] as [EduMode, string][]).map(([mode, label]) => (
                       <button className="wide-option" key={mode} type="button" aria-pressed={eduMode === mode} onClick={() => { setEduMode(mode); processResult(vision, bridgeMode, mode); }}>
                         <ScanSearch aria-hidden="true" /> {label}
