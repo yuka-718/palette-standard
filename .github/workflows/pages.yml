@@ -33,6 +33,11 @@ jobs:
       - name: Build static site
         run: npm run build
 
+      - name: Align asset paths for project Pages
+        run: |
+          mv dist/client/palette-standard/_next dist/client/_next
+          rmdir dist/client/palette-standard
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
