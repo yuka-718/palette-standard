@@ -411,28 +411,28 @@ export default function Home() {
           <span>Palette <b>Standard</b></span>
         </a>
         <nav aria-label="メインナビゲーション">
-          <a href="#modules">3つの機能</a>
-          <a href="#how">しくみ</a>
-          <a className="nav-cta" href="#workspace">無料で試す <ArrowDown aria-hidden="true" /></a>
+          <a href="#modules">機能</a>
+          <a href="#how">処理方法</a>
+          <a className="nav-cta" href="#workspace">ツールを開く <ArrowDown aria-hidden="true" /></a>
         </nav>
       </header>
 
       <section className="hero" id="top">
         <div className="hero-copy">
-          <p className="eyebrow"><Sparkles aria-hidden="true" /> Color accessibility platform</p>
-          <h1>色の違いを、<br /><span>伝わる違いへ。</span></h1>
+          <p className="eyebrow"><Sparkles aria-hidden="true" /> Color accessibility tool / Browser based</p>
+          <h1><span>色を、</span><br />伝わる情報に。</h1>
           <p className="lead">
-            見えづらさを見つけるだけで終わらない。<br />
-            Palette Standard は、画像を解析し、誰にでも識別しやすい形へ自動で補正します。
+            配色の問題を検出し、明度・模様・輪郭・言葉で補正する。<br />
+            制作、教育、日常のためのカラーユニバーサルデザインツールです。
           </p>
           <div className="hero-actions">
-            <a className="primary-button" href="#workspace">画像で試してみる <ArrowDown aria-hidden="true" /></a>
-            <a className="text-link" href="#modules">できることを見る</a>
+            <a className="primary-button" href="#workspace">画像を解析する <ArrowDown aria-hidden="true" /></a>
+            <a className="text-link" href="#modules">機能一覧</a>
           </div>
           <ul className="trust-list" aria-label="Palette Standard の特徴">
-            <li><Check aria-hidden="true" /> ブラウザだけで完結</li>
-            <li><Check aria-hidden="true" /> 画像は端末内で処理</li>
-            <li><Check aria-hidden="true" /> P・D・T型に対応</li>
+            <li><Check aria-hidden="true" /> 01 / ブラウザで完結</li>
+            <li><Check aria-hidden="true" /> 02 / 画像は端末内で処理</li>
+            <li><Check aria-hidden="true" /> 03 / P・D・T型に対応</li>
           </ul>
         </div>
 
@@ -482,7 +482,7 @@ export default function Home() {
       <section className="workspace-section" id="workspace">
         <div className="section-heading">
           <p className="section-kicker">TRY IT IN YOUR BROWSER</p>
-          <h2>{activeModule === 'bridge' ? '画像の色を、伝わる形へ。' : activeModule === 'edu' ? '見えにくい文字を、くっきり。' : '2色の相性を、ことばで。'}</h2>
+          <h2>{activeModule === 'bridge' ? '識別しにくい色を検出する' : activeModule === 'edu' ? '教材の文字を読みやすく補正する' : '2色の組み合わせを確認する'}</h2>
           <p>
             {activeModule === 'bridge' && '画像を置くだけで、色覚タイプ別の見え方と自動補正を比較できます。'}
             {activeModule === 'edu' && '教材や黒板画像の赤系文字を抽出し、読みやすい表現へ変換します。'}
@@ -638,7 +638,7 @@ export default function Home() {
       <section className="how-section" id="how">
         <div className="section-intro">
           <p className="dark-kicker">FROM DETECTION TO SOLUTION</p>
-          <h2>確認で終わらない。<br /><span>解決まで、ひと続き。</span></h2>
+          <h2>画像を、端末内で<br /><span>検出から補正まで。</span></h2>
         </div>
         <div className="steps-grid">
           <article>
@@ -671,9 +671,9 @@ export default function Home() {
 
       <section className="vision-section">
         <p>OUR VISION</p>
-        <h2>色のバリアフリーを、<br /><span>すべての人へ。</span></h2>
-        <p>創作・教育・暮らしをひとつの技術でつなぎ、<br />誰もが色で迷わない社会の標準をつくります。</p>
-        <a className="light-button" href="#workspace">Palette Standard を試す <ArrowRight aria-hidden="true" /></a>
+        <h2>色で迷わないことを、<br /><span>社会の標準へ。</span></h2>
+        <p>創作・教育・暮らしのなかで、色の違いが情報の壁にならない状態を目指します。</p>
+        <a className="light-button" href="#workspace">ツールを開く <ArrowRight aria-hidden="true" /></a>
       </section>
 
       <footer>
